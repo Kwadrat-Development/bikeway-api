@@ -2,37 +2,29 @@ from typing import Union
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session  # Używaj Session, a nie SessionLocal
+from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel
-from passlib.context import CryptContext  # Do haszowania haseł
+from passlib.context import CryptContext  
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from typing import Generator  # Import Generator dla typowania
+from typing import Generator 
 
-# URL bazy danych SQLite
 DATABASE_URL = "sqlite:///bikeway-db.db"
 
-# Tworzenie silnika bazy danych (engine) oraz połączenie z bazą
 engine = create_engine(DATABASE_URL)
 
-# Podstawowa klasa dla SQLAlchemy, której będziemy używać do tworzenia tabel
 Base = declarative_base()
 
-# Tworzenie sesji połączenia z bazą danych
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Kontekst PassLib do haszowania haseł
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Inicjalizacja aplikacji FastAPI
 app = FastAPI()
 
-######## JWT KONFIGURACJA ########
 SECRET_KEY = "5uOu4Q05M105"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-######## TABELA BAZY DANYCH ########
 class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -42,7 +34,6 @@ class User(Base):
 
 Base.metadata.create_all(bind=engine)
 
-######## MODELE Pydantic ########
 class UserCreate(BaseModel):
     username: str
     email: str
@@ -52,9 +43,7 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
-######## POMOCNICZE FUNKCJE ########
-# Funkcja otwierająca połączenie z bazą danych
-def get_db() -> Generator[Session, None, None]:  # Zwracamy obiekt Session
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
@@ -77,10 +66,8 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-######## ENDPOINTY ########
-# Endpoint do rejestracji użytkownika
 @app.post("/register/")
-async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):  # Użyj Session
+async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user_data.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -96,9 +83,8 @@ async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):  
     db.refresh(new_user)
     return {"msg": "User registered successfully"}
 
-# Endpoint do logowania i uzyskiwania tokena JWT
 @app.post("/login/", response_model=Token)
-async def login(user_data: UserCreate, db: Session = Depends(get_db)):  # Użyj Session
+async def login(user_data: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user_data.email).first()
     
     if not db_user or not verify_password(user_data.password, db_user.hashed_password):
